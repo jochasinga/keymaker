@@ -1,0 +1,12 @@
+[package]
+name = "bip39"
+version = "0.1.0"
+edition = "2018"
+authors = ["Pan Chasinga"]
+
+[dependencies]
+rand_core = { version = "0.6", features = ["std", "getrandom"] }
+getrandom = "0.2"
+to-binary = "0.4"
+hex = "0.4.3"
+ring = "^0.16"
