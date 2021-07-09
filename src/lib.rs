@@ -10,18 +10,31 @@ use hex;
 
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA512;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
-const SUB_LEN: usize = 11;
-const BYTES_LEN: usize = 16;
+const BLOCK_SIZE: usize = 11;
+const TWO_BYTES_LEN: usize = 16;
+const FOUR_BYTES_LEN: usize = 32;
+const SIZE_128_BITS: usize = 128;
+const SIZE_256_BITS: usize = 256;
 const BITS_PER_CHECKSUM_DIGIT: usize = 32;
 const DEFAULT_PASSPHRASE: &str = "";
 const DEFAULT_SALT_BASE: &str = "mnemonic";
 const WORDLIST_PATH: &str = "./wordlist.txt";
+
+pub enum MnemonicSize {
+    Size128Bits,
+    Size256Bits,
+    Size16Bytes,
+    Size32Bytes,
+    Size12Words,
+    Size24Words,
+}
 
 pub type Credential = [u8; CREDENTIAL_LEN];
 
 pub struct SeedBuilder<'a> {
     passphrase: &'a str,
     salt: Option<Vec<u8>>,
+    bits: usize,
 }
 
 impl<'a> Default for SeedBuilder<'a> {
@@ -29,7 +42,8 @@ impl<'a> Default for SeedBuilder<'a> {
         let salt = DEFAULT_SALT_BASE.to_string() + DEFAULT_PASSPHRASE;
         SeedBuilder {
             passphrase: DEFAULT_PASSPHRASE,
-            salt: Some(salt.as_bytes().to_vec())
+            salt: Some(salt.as_bytes().to_vec()),
+            bits: SIZE_128_BITS,
         }
     }
 }
@@ -37,6 +51,28 @@ impl<'a> Default for SeedBuilder<'a> {
 impl<'a> SeedBuilder<'a> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn size(mut self, size: MnemonicSize) -> Self {
+        use MnemonicSize::*;
+        match size {
+            Size128Bits
+            | Size12Words
+            | Size16Bytes => {
+                self.bits = SIZE_128_BITS;
+            }
+            Size256Bits
+            | Size24Words
+            | Size32Bytes => {
+                self.bits = SIZE_256_BITS;
+            }
+        }
+        self
+    }
+
+    pub fn bits(mut self, bits: usize) -> Self {
+        self.bits = bits;
+        self
     }
 
     pub fn salt(mut self, salt: Vec<u8>) -> Self {
@@ -52,7 +88,16 @@ impl<'a> SeedBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Seed, String> {
-        let mut key = [0u8; BYTES_LEN];
+        let mut key: Vec<u8>;
+        match self.bits {
+            256 => {
+                key = vec![0u8; FOUR_BYTES_LEN];
+            }
+            128 | _ => {
+                key = vec![0u8; TWO_BYTES_LEN];
+            }
+        }
+
         OsRng.fill_bytes(&mut key);
 
         let result = digest::digest(&digest::SHA256, &key);
@@ -64,7 +109,7 @@ impl<'a> SeedBuilder<'a> {
         let ent = bin + checksum;
 
         let subs = ent.as_bytes()
-            .chunks(SUB_LEN)
+            .chunks(BLOCK_SIZE)
             .map(str::from_utf8)
             .collect::<Result<Vec<&str>, _>>()
             .unwrap();
@@ -141,18 +186,26 @@ mod tests {
         let default_builder = SeedBuilder::new();
         let custom_builder = SeedBuilder::new()
             .passphrase("holymoly")
-            .salt(rand[..].to_vec());
+            .salt(rand[..].to_vec())
+            .bits(256);
 
+        assert_eq!(default_builder.bits, 128);
         assert_eq!(default_builder.passphrase, "");
         assert_eq!(default_builder.salt.to_owned().unwrap(), "mnemonic".as_bytes().to_vec());
+        assert_eq!(custom_builder.bits, 256);
         assert_eq!(custom_builder.passphrase, "holymoly");
         assert_eq!(custom_builder.salt.to_owned().unwrap(), rand[..].to_vec());
 
         let default_seed = default_builder.build()?;
         let custom_seed = custom_builder.build()?;
 
+        let next_builder = SeedBuilder::new()
+            .size(MnemonicSize::Size32Bytes)
+            .build()?;
+
         assert_eq!(default_seed.mnemonic.len(), 12);
-        assert_eq!(custom_seed.mnemonic.len(), 12);
+        assert_eq!(custom_seed.mnemonic.len(), 24);
+        assert_eq!(next_builder.mnemonic.len(), 24);
         assert_eq!(default_seed.entropy.len(), 64);
         assert_eq!(custom_seed.entropy.len(), 64);
         Ok(())
