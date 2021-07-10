@@ -10,6 +10,8 @@ use hex;
 
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA512;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
+const DEFAULT_PDKF2_ITERATIONS: u32 = 100_000;
+const BYTE_LEN: usize = 8;
 const BLOCK_SIZE: usize = 11;
 const TWO_BYTES_LEN: usize = 16;
 const FOUR_BYTES_LEN: usize = 32;
@@ -117,9 +119,7 @@ impl<'a> SeedBuilder<'a> {
         let indices: Vec<usize> = subs.iter()
             .map(|b| {
                 let intval = isize::from_str_radix(b, 2).unwrap();
-                intval
-            }).map(|i| {
-                i as usize
+                intval as usize
             }).collect();
 
         let path = Path::new(WORDLIST_PATH);
@@ -144,7 +144,7 @@ impl<'a> SeedBuilder<'a> {
 
         let password = mnemonic_words.join(" ");
         let mut seed_store: Credential = [0u8; CREDENTIAL_LEN];
-        let iterations = NonZeroU32::new(100_000).unwrap();
+        let iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS).unwrap();
         pbkdf2::derive(PBKDF2_ALG, iterations, &salt,
                         password.as_bytes(), &mut seed_store);
 
@@ -173,10 +173,60 @@ impl ToString for Seed {
     }
 }
 
+impl Seed {
+    pub fn validate(&self) -> bool {
+        let file = File::open(Path::new(WORDLIST_PATH)).unwrap();
+        let reader = BufReader::new(file);
+        let words: Vec<String> = reader.lines().into_iter()
+            .map(|o| o.unwrap())
+            .collect();
+
+        let mut indices: Vec<usize> = Vec::with_capacity(self.mnemonic.len());
+        for keyword in self.mnemonic.clone() {
+            for (i, word) in (&words).into_iter().enumerate() {
+                if keyword == *word {
+                    indices.push(i);
+                }
+            }
+        }
+
+        let subs: Vec<String> = indices.into_iter().map(|i| format!("{:011b}", i)).collect();
+        let ent = subs.join("");
+
+        let checksum_size = match self.mnemonic.len() {
+            12 => SIZE_128_BITS,
+            24 => SIZE_256_BITS,
+            _ => SIZE_128_BITS,
+        };
+
+        let checksum_digits = checksum_size / BITS_PER_CHECKSUM_DIGIT;
+        let bin = &ent[..ent.len()-4];
+        let checksum = &ent[ent.len()-4..];
+
+        let key: Vec<u8> = bin.as_bytes()
+            .chunks(BYTE_LEN)
+            .map(|i| {
+                let b = str::from_utf8(i).unwrap();
+                let intval = isize::from_str_radix(b, 2).unwrap();
+                intval as u8
+            }).collect();
+
+        let hash = digest::digest(&digest::SHA256, &key);
+        let BinaryString(b) = BinaryString::from(hash.as_ref());
+        &b[..checksum_digits] == checksum
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+
+    const BYTE_LEN: usize = 8;
+    enum Error {
+        WrongUsernameOrPassword
+    }
 
     #[test]
     fn test_seed_building() -> Result<(), String> {
@@ -209,5 +259,67 @@ mod tests {
         assert_eq!(default_seed.entropy.len(), 64);
         assert_eq!(custom_seed.entropy.len(), 64);
         Ok(())
+    }
+
+    #[test]
+    fn validate_mnemonic() {
+        use hex::{decode_to_slice as hex_decode_to_slice};
+        let salt = "mysalt".as_bytes().to_vec();
+
+        let seed = SeedBuilder::new()
+            .salt(salt.clone()).build().unwrap();
+
+        let Seed { mnemonic, hex, ..  } = &seed;
+
+        let password = mnemonic.join(" ");
+        let mut store = [0u8; CREDENTIAL_LEN];
+        hex_decode_to_slice(hex, &mut store).unwrap();
+
+        let pdkf2_iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS).unwrap();
+        if let Ok(verified) = pbkdf2::verify(PBKDF2_ALG, pdkf2_iterations, &salt,
+            password.as_bytes(),
+            &store)
+            .map_err(|_| Error::WrongUsernameOrPassword) {
+            assert_eq!(verified, ());
+        } else {
+            assert!(false);
+        }
+
+
+        let file = File::open(Path::new(WORDLIST_PATH)).unwrap();
+        let reader = BufReader::new(file);
+
+        let words: Vec<String> = reader.lines().into_iter()
+            .map(|o| o.unwrap())
+            .collect();
+
+        let mut indices: Vec<usize> = Vec::with_capacity(mnemonic.len());
+
+        for keyword in mnemonic.clone() {
+            for (i, word) in (&words).into_iter().enumerate() {
+                if keyword == *word {
+                    indices.push(i);
+                }
+            }
+        }
+
+        let subs: Vec<String> = indices.into_iter().map(|i| format!("{:011b}", i)).collect();
+        let ent = subs.join("");
+        let checksum_digits = SIZE_128_BITS / BITS_PER_CHECKSUM_DIGIT;
+        let bin = &ent[..ent.len()-4];
+        let checksum = &ent[ent.len()-4..];
+
+        let key: Vec<u8> = bin.as_bytes()
+            .chunks(BYTE_LEN)
+            .map(|i| {
+                let b = str::from_utf8(i).unwrap();
+                let intval = isize::from_str_radix(b, 2).unwrap();
+                intval as u8
+            }).collect();
+
+        let hash = digest::digest(&digest::SHA256, &key);
+        let BinaryString(b) = BinaryString::from(hash.as_ref());
+        assert_eq!(&b[..checksum_digits], checksum);
+        assert!(seed.validate());
     }
 }
