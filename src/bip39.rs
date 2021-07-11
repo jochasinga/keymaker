@@ -7,6 +7,8 @@ use to_binary::BinaryString;
 use std::path::Path;
 use ring::{digest, pbkdf2};
 use hex;
+use anyhow::{Context, Result};
+use thiserror::Error;
 
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA512;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
@@ -21,6 +23,23 @@ const BITS_PER_CHECKSUM_DIGIT: usize = 32;
 const DEFAULT_PASSPHRASE: &str = "";
 const DEFAULT_SALT_BASE: &str = "mnemonic";
 const WORDLIST_PATH: &str = "./wordlist.txt";
+
+/// Error originating from [bip39](bip39) module.
+#[derive(Error, Debug)]
+pub enum Bip39Error {
+
+    #[error("Error parsing binary string {0}")]
+    ParseBinError(String),
+
+    #[error("Missing file or directory {0}")]
+    MissingFileOrDirectory(String),
+
+    #[error("Error opening file {0}. Please report a bug.")]
+    FileError(String),
+
+    #[error("Error creating interations for PDKF2 encoding with iteration = {0}. Please report a bug.")]
+    Pdkf2IterError(u32)
+}
 
 /// Define convenient aliases for the bit size of the seed.
 ///
@@ -158,7 +177,7 @@ impl<'a> SeedBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> Result<Seed, String> {
+    pub fn build(self) -> Result<Seed, Bip39Error> {
         let mut key: Vec<u8>;
         match self.bits {
             256 => {
@@ -187,16 +206,22 @@ impl<'a> SeedBuilder<'a> {
 
         let indices: Vec<usize> = subs.iter()
             .map(|b| {
-                let intval = isize::from_str_radix(b, 2).unwrap();
+                let intval = isize::from_str_radix(b, 2)
+                    .with_context(|| Bip39Error::ParseBinError(b.to_string()))
+                    .unwrap();
                 intval as usize
-            }).collect();
+            })
+            .collect();
 
         let path = Path::new(WORDLIST_PATH);
         if !path.exists() {
-            return Err(format!("wordlist file at {} does not exist", WORDLIST_PATH));
+            return Err(Bip39Error::MissingFileOrDirectory(WORDLIST_PATH.to_string()));
         }
 
-        let file = File::open(path).unwrap();
+        let file = File::open(path)
+            .with_context(|| Bip39Error::FileError(WORDLIST_PATH.to_string()))
+            .unwrap();
+
         let reader = BufReader::new(file);
         let words: Vec<String> = reader.lines().into_iter()
             .map(|o| o.unwrap())
@@ -213,7 +238,9 @@ impl<'a> SeedBuilder<'a> {
 
         let password = mnemonic_words.join(" ");
         let mut seed_store: Credential = [0u8; CREDENTIAL_LEN];
-        let iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS).unwrap();
+        let iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS)
+            .with_context(|| Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS))
+            .unwrap();
         pbkdf2::derive(PBKDF2_ALG, iterations, &salt,
                         password.as_bytes(), &mut seed_store);
 
@@ -307,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seed_building() -> Result<(), String> {
+    fn test_seed_building() -> Result<(), Bip39Error> {
         let mut rand = [0u8; 16];
         OsRng.fill_bytes(&mut rand);
 
@@ -340,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_mnemonic() {
+    fn validate_mnemonic() -> Result<(), Bip39Error> {
         use hex::{decode_to_slice as hex_decode_to_slice};
         let salt = "mysalt".as_bytes().to_vec();
 
@@ -353,7 +380,8 @@ mod tests {
         let mut store = [0u8; CREDENTIAL_LEN];
         hex_decode_to_slice(hex, &mut store).unwrap();
 
-        let pdkf2_iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS).unwrap();
+        let pdkf2_iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS)
+            .ok_or(Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS))?;
         if let Ok(verified) = pbkdf2::verify(PBKDF2_ALG, pdkf2_iterations, &salt,
             password.as_bytes(),
             &store)
@@ -399,5 +427,7 @@ mod tests {
         let BinaryString(b) = BinaryString::from(hash.as_ref());
         assert_eq!(&b[..checksum_digits], checksum);
         assert!(seed.validate());
+
+        Ok(())
     }
 }

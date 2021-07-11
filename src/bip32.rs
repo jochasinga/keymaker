@@ -1,7 +1,7 @@
 use std::str;
 use std::convert::TryInto;
 use ring::{hmac::{self, HMAC_SHA512}};
-use anyhow::{self, Context, Result};
+use anyhow::{self, Result};
 use thiserror::Error;
 
 const DEFAULT_KEY: &str = "xerberus_seed";
