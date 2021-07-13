@@ -9,6 +9,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "595d3cfa7a60d4555cb5067b99f07142a08ea778de5cf993f7b75c7d8fabc486"
 
 [[package]]
+name = "base58"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5024ee8015f02155eee35c711107ddd9a9bf3cb689cf2a9089c97e79b6e1ae83"
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.9.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce18265ec2324ad075345d5814fbeed4f41f0a660055dc78840b74d19b874b1"
+
+[[package]]
 name = "bumpalo"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16,9 +28,9 @@ checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
 
 [[package]]
 name = "cc"
-version = "1.0.68"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a72c244c1ff497a746a7e1fb3d14bd08420ecda70c8f25c7112f2781652d787"
+checksum = "e70cc2f62c6ce1868963827bd677764c62d07c3d9a3e1fb1177ee1a9ab199eb2"
 
 [[package]]
 name = "cfg-if"
@@ -119,6 +131,25 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d03ceae636d0fed5bae6a7f4f664354c5f4fcedf6eef053fef17e49f837d0a"
+dependencies = [
+ "bitcoin_hashes",
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "827cb7cce42533829c792fc51b82fbf18b125b45a702ef2c8be77fce65463a7b"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -276,10 +307,13 @@ name = "xerberus"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base58",
  "getrandom",
  "hex",
+ "lazy_static",
  "rand_core",
  "ring",
+ "secp256k1",
  "thiserror",
  "to-binary",
 ]
