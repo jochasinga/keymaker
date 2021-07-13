@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str;
 use std::convert::TryInto;
 use ring::{hmac::{self, HMAC_SHA512}};
@@ -24,7 +25,7 @@ pub struct KeyPair {
     public: PublicKey,
 }
 
-/*
+
 impl fmt::Debug for KeyPair {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.private.fmt(f)?;
@@ -38,7 +39,7 @@ impl fmt::Display for KeyPair {
         writeln!(f, "public: {}", self.public)
     }
 }
-*/
+
 
 impl KeyPair {
     pub fn private(&self) -> &PrivateKey {

@@ -3,8 +3,10 @@ pub mod bip39;
 mod network;
 mod private;
 mod public;
-// mod error;
-// mod display;
+mod display;
+mod crypto;
+mod error;
+
 
 /// Re-exported for convenience.
 ///
@@ -17,12 +19,14 @@ pub use bip32::{KeyPair, MasterExtendedKeys};
 pub use network::Network;
 pub use private::PrivateKey;
 pub use public::PublicKey;
-// pub use error::Error;
-// pub use display::DisplayLayout;
+pub use display::DisplayLayout;
+pub use error::Error;
+
 
 use lazy_static::lazy_static;
 
 
+type Hash32Bits  = [u8; 4];
 type Hash160Bits = [u8; 20];
 type Hash256Bits = [u8; 32];
 type Hash264Bits = [u8; 33];
