@@ -12,7 +12,7 @@ use thiserror::Error;
 
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA512;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
-const DEFAULT_PDKF2_ITERATIONS: u32 = 100_000;
+const DEFAULT_PDKF2_ITERATIONS: u32 = 2048;
 const BYTE_LEN: usize = 8;
 const BLOCK_SIZE: usize = 11;
 const TWO_BYTES_LEN: usize = 16;
@@ -238,11 +238,12 @@ impl<'a> SeedBuilder<'a> {
 
         let password = mnemonic_words.join(" ");
         let mut seed_store: Credential = [0u8; CREDENTIAL_LEN];
-        let iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS)
-            .with_context(|| Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS))
-            .unwrap();
-        pbkdf2::derive(PBKDF2_ALG, iterations, &salt,
-                        password.as_bytes(), &mut seed_store);
+        if let Some(iterations) = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS) {
+            pbkdf2::derive(PBKDF2_ALG, iterations, &salt,
+                    password.as_bytes(), &mut seed_store);
+        } else {
+            return Err(Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS));
+        }
 
         let hex_str = hex::encode(&seed_store[..]);
 
