@@ -12,7 +12,7 @@ hex = "0.4.3"
 ring = "^0.16"
 anyhow = "^1.0"
 thiserror = "^1.0"
-secp256k1 = { version = "^0.20", features = ["bitcoin_hashes"] }
+secp256k1 = { version = "^0.20", features = ["bitcoin_hashes", "recovery"] }
 lazy_static = "1.4.0"
 base58 = "^0.1"
 rust-crypto = "0.2.36"
