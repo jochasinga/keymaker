@@ -6,6 +6,7 @@ mod public;
 mod display;
 mod crypto;
 mod error;
+mod signature;
 
 
 /// Re-exported for convenience.
@@ -21,6 +22,7 @@ pub use private::PrivateKey;
 pub use public::PublicKey;
 pub use display::DisplayLayout;
 pub use error::Error;
+pub use signature::{Signature, CompactSignature};
 
 
 use lazy_static::lazy_static;

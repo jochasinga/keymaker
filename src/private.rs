@@ -1,7 +1,10 @@
+use std::convert::TryInto;
 use std::fmt;
 use secp256k1::bitcoin_hashes::hex::ToHex;
+use secp256k1::key;
+use secp256k1::Message as SecpMessage;
 use base58::{ToBase58, FromBase58};
-use crate::{Secret, Network, DisplayLayout, Error};
+use crate::{SECP256K1, Secret, Network, DisplayLayout, Error, Message, Signature, CompactSignature};
 use crate::crypto;
 
 #[derive(PartialEq)]
@@ -12,6 +15,17 @@ pub struct PrivateKey {
     pub secret: Secret,
     /// Determine if this private key is in a compressed form (33 bytes).
     pub compressed: bool,
+}
+
+impl PrivateKey {
+	pub fn sign(&self, message: &Message) -> Result<Signature, Error> {
+		let context = &SECP256K1;
+		let secret = key::SecretKey::from_slice(&self.secret)?;
+		let message = SecpMessage::from_slice(message)?;
+		let signature = context.sign(&message, &secret);
+		let serialized_sig = signature.serialize_der();
+        Ok(Signature::from(serialized_sig))
+	}
 }
 
 impl DisplayLayout for PrivateKey {

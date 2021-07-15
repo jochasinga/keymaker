@@ -162,4 +162,22 @@ mod tests {
         let _ = KeyPair::from_private(keys.private, false);
         Ok(())
     }
+
+    #[test]
+    fn display_keys() -> Result<()> {
+        let Seed{ entropy, .. } = SeedBuilder::new().build()?;
+        let keys = MasterExtendedKeys::new(
+            entropy, None, Network::Testnet, false,
+        )?;
+
+        let kp = KeyPair::from_private(keys.private, false)?;
+
+        assert_eq!(kp.private().secret.len(), 32);
+
+        if let PublicKey::Standard(inner) = kp.public() {
+            assert_eq!(inner.len(), 65);
+        }
+
+        Ok(())
+    }
 }
