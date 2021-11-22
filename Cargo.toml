@@ -1,8 +1,8 @@
 [package]
-name = "xerberus"
+name = "keymaker"
 version = "0.1.0"
 edition = "2018"
-authors = ["Pan Chasinga"]
+authors = ["Pan Chasinga <pchasinga@gmail.com>"]
 
 [dependencies]
 rand_core = { version = "0.6", features = ["std", "getrandom"] }

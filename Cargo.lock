@@ -77,6 +77,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "keymaker"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base58",
+ "getrandom",
+ "hex",
+ "lazy_static",
+ "rand_core 0.6.3",
+ "ring",
+ "rust-crypto",
+ "secp256k1",
+ "thiserror",
+ "to-binary",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -389,20 +406,3 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "xerberus"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base58",
- "getrandom",
- "hex",
- "lazy_static",
- "rand_core 0.6.3",
- "ring",
- "rust-crypto",
- "secp256k1",
- "thiserror",
- "to-binary",
-]

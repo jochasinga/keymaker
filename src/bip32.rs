@@ -1,14 +1,14 @@
+use anyhow::{Context, Result};
+use ring::hmac::{self, HMAC_SHA512};
+use secp256k1::{self, key};
+use std::convert::TryInto;
 use std::fmt;
 use std::str;
-use std::convert::TryInto;
-use ring::{hmac::{self, HMAC_SHA512}};
-use anyhow::{Context, Result};
 use thiserror::Error;
-use secp256k1::{self, key};
 
 use crate::{ChainCode, Network, PrivateKey, PublicKey, SECP256K1};
 
-const DEFAULT_KEY: &str = "xerberus_seed";
+const DEFAULT_KEY: &str = "default_seed";
 
 /// Error originating from [bip32](bip32) module.
 #[derive(Error, Debug)]
@@ -20,11 +20,11 @@ pub enum Bip32Error {
     TryFromSliceError,
 }
 
+/// Define a pair of private and public keys.
 pub struct KeyPair {
     private: PrivateKey,
     public: PublicKey,
 }
-
 
 impl fmt::Debug for KeyPair {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -40,7 +40,6 @@ impl fmt::Display for KeyPair {
     }
 }
 
-
 impl KeyPair {
     pub fn private(&self) -> &PrivateKey {
         &self.private
@@ -48,6 +47,14 @@ impl KeyPair {
 
     pub fn public(&self) -> &PublicKey {
         &self.public
+    }
+
+    pub fn pubkey(&self) -> &PublicKey {
+        &self.public
+    }
+
+    pub fn secret(&self) -> &PrivateKey {
+        &self.private
     }
 
     pub fn from_private(private: PrivateKey, compressed: bool) -> Result<Self> {
@@ -62,10 +69,9 @@ impl KeyPair {
             public = PublicKey::Compressed(pub_key.serialize());
         }
 
-        Ok(Self{ private, public })
+        Ok(Self { private, public })
     }
 }
-
 
 /// Represents a derivable master key for all child keys.
 pub struct MasterExtendedKeys {
@@ -82,7 +88,12 @@ impl MasterExtendedKeys {
     /// * `msg` - 64-bit byte array of a seed message derived from [bip32::Seed](bip32::Seed).
     /// * `key` - Optional key. Default to "xerberus_seed".
     ///
-    fn new(msg: [u8; 64], mut key: Option<&str>, network: Network, compressed: bool) -> Result<Self> {
+    pub fn new(
+        msg: [u8; 64],
+        mut key: Option<&str>,
+        network: Network,
+        compressed: bool,
+    ) -> Result<Self> {
         if key.is_none() {
             key.replace(DEFAULT_KEY);
         }
@@ -93,12 +104,13 @@ impl MasterExtendedKeys {
         let tag = hmac::sign(&k, &msg[..]);
         let inner_t = tag.as_ref();
 
-        let private_key: [u8; 32] = inner_t[..inner_t.len()/2].try_into()
+        let private_key: [u8; 32] = inner_t[..inner_t.len() / 2]
+            .try_into()
             .with_context(|| Bip32Error::TryFromSliceError)?;
 
-        let chain_code: ChainCode = inner_t[inner_t.len()/2..].try_into()
+        let chain_code: ChainCode = inner_t[inner_t.len() / 2..]
+            .try_into()
             .with_context(|| Bip32Error::TryFromSliceError)?;
-
 
         let private = PrivateKey {
             network,
@@ -113,7 +125,8 @@ impl MasterExtendedKeys {
             let public_key = key::PublicKey::from_secret_key(&SECP256K1, &secret_key).serialize();
             public = PublicKey::Compressed(public_key);
         } else {
-            let uncompressed_public_key = key::PublicKey::from_secret_key(&SECP256K1, &secret_key).serialize_uncompressed();
+            let uncompressed_public_key =
+                key::PublicKey::from_secret_key(&SECP256K1, &secret_key).serialize_uncompressed();
             public = PublicKey::Standard(uncompressed_public_key);
         }
 
@@ -122,6 +135,10 @@ impl MasterExtendedKeys {
             private,
             chain_code,
         })
+    }
+
+    pub fn pubkey(&self) -> PublicKey {
+        self.public.clone()
     }
 }
 
@@ -134,14 +151,13 @@ mod tests {
 
     #[test]
     fn key_gen_test() {
-        let Seed{ entropy, ..} = SeedBuilder::new().build().unwrap();
-        let keys = MasterExtendedKeys::new(
-            entropy, None, Network::Testnet, false);
+        let Seed { entropy, .. } = SeedBuilder::new().build().unwrap();
+        let keys = MasterExtendedKeys::new(entropy, None, Network::Testnet, false);
 
-        let MasterExtendedKeys{
+        let MasterExtendedKeys {
             public,
             private,
-            chain_code
+            chain_code,
         } = keys.unwrap();
 
         if let PublicKey::Standard(pub_key) = public {
@@ -156,19 +172,16 @@ mod tests {
 
     #[test]
     fn keypair_gen() -> Result<()> {
-        let Seed{ entropy, ..} = SeedBuilder::new().build().unwrap();
-        let keys = MasterExtendedKeys::new(
-            entropy, None, Network::Testnet, false)?;
+        let Seed { entropy, .. } = SeedBuilder::new().build().unwrap();
+        let keys = MasterExtendedKeys::new(entropy, None, Network::Testnet, false)?;
         let _ = KeyPair::from_private(keys.private, false);
         Ok(())
     }
 
     #[test]
     fn display_keys() -> Result<()> {
-        let Seed{ entropy, .. } = SeedBuilder::new().build()?;
-        let keys = MasterExtendedKeys::new(
-            entropy, None, Network::Testnet, false,
-        )?;
+        let Seed { entropy, .. } = SeedBuilder::new().build()?;
+        let keys = MasterExtendedKeys::new(entropy, None, Network::Testnet, false)?;
 
         let kp = KeyPair::from_private(keys.private, false)?;
 

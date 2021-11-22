@@ -1,14 +1,14 @@
+use anyhow::{Context, Result};
+use hex;
+use rand_core::{OsRng, RngCore};
+use ring::{digest, pbkdf2};
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
-use std::{num::NonZeroU32};
-use std::str;
-use rand_core::{RngCore, OsRng};
-use to_binary::BinaryString;
+use std::num::NonZeroU32;
 use std::path::Path;
-use ring::{digest, pbkdf2};
-use hex;
-use anyhow::{Context, Result};
+use std::str;
 use thiserror::Error;
+use to_binary::BinaryString;
 
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA512;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
@@ -27,7 +27,6 @@ const WORDLIST_PATH: &str = "./wordlist.txt";
 /// Error originating from [bip39](bip39) module.
 #[derive(Error, Debug)]
 pub enum Bip39Error {
-
     #[error("Error parsing binary string {0}")]
     ParseBinError(String),
 
@@ -37,8 +36,10 @@ pub enum Bip39Error {
     #[error("Error opening file {0}. Please report a bug.")]
     FileError(String),
 
-    #[error("Error creating interations for PDKF2 encoding with iteration = {0}. Please report a bug.")]
-    Pdkf2IterError(u32)
+    #[error(
+        "Error creating interations for PDKF2 encoding with iteration = {0}. Please report a bug."
+    )]
+    Pdkf2IterError(u32),
 }
 
 /// Define convenient aliases for the bit size of the seed.
@@ -46,7 +47,7 @@ pub enum Bip39Error {
 /// # Examples
 ///
 /// ```
-/// use xerberus::bip39::{SeedBuilder, MnemonicSize};
+/// use keymaker::bip39::{SeedBuilder, MnemonicSize};
 /// let seed = SeedBuilder::new().size(MnemonicSize::Size256Bits)
 ///     .build().unwrap();
 /// ```
@@ -55,6 +56,8 @@ pub enum MnemonicSize {
     Size256Bits,
     Size16Bytes,
     Size32Bytes,
+
+    // TODO: These are a little confusing, mixing "words" with binary word size.
     Size12Words,
     Size24Words,
 }
@@ -66,7 +69,7 @@ type Credential = [u8; CREDENTIAL_LEN];
 /// # Examples
 ///
 /// ```
-/// use xerberus::bip39::SeedBuilder;
+/// use keymaker::bip39::SeedBuilder;
 /// let seed = SeedBuilder::new().build().unwrap();
 /// ```
 pub struct SeedBuilder<'a> {
@@ -101,22 +104,20 @@ impl<'a> SeedBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// use xerberus::bip39::{SeedBuilder, MnemonicSize};
-    /// let seed_256_bits = SeedBuilder::new()
-    ///     .size(MnemonicSize::Size256Bits)
+    /// use keymaker::bip39::{SeedBuilder, MnemonicSize};
+    ///
+    /// // Create a seed with mnemonic phase of 12 words.
+    /// let seed = SeedBuilder::new()
+    ///     .size(MnemonicSize::Size12Words)
     ///     .build().unwrap();
     /// ```
     pub fn size(mut self, size: MnemonicSize) -> Self {
         use MnemonicSize::*;
         match size {
-            Size128Bits
-            | Size12Words
-            | Size16Bytes => {
+            Size128Bits | Size12Words | Size16Bytes => {
                 self.bits = SIZE_128_BITS;
             }
-            Size256Bits
-            | Size24Words
-            | Size32Bytes => {
+            Size256Bits | Size24Words | Size32Bytes => {
                 self.bits = SIZE_256_BITS;
             }
         }
@@ -133,7 +134,7 @@ impl<'a> SeedBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// use xerberus::bip39::SeedBuilder;
+    /// use keymaker::bip39::SeedBuilder;
     /// let seed_256_bits = SeedBuilder::new()
     ///     .bits(256)
     ///     .build().unwrap();
@@ -146,21 +147,24 @@ impl<'a> SeedBuilder<'a> {
     /// Set the optional salt of the seed.
     /// The default value is "mnemonic" + {passphrase}.
     ///
-    /// # Argumentss
+    /// # Arguments
     ///
-    /// * `salt` - A Vec<u8> that represents the salt string.
+    /// * `salt` - A `Vec<u8>` that represents the salt string.
     ///
     /// # Examples
     ///
     /// ```
-    /// use xerberus::bip39::SeedBuilder;
+    /// use keymaker::bip39::SeedBuilder;
     /// use rand_core::{RngCore, OsRng};
     ///
     /// // Set a random 8-byte salt.
     /// let mut rand = [0u8; 8];
     /// OsRng.fill_bytes(&mut rand);
     ///
+    /// // Use the default salt.
     /// let default_builder = SeedBuilder::new();
+    ///
+    /// // Use a custom salt and passhrase.
     /// let custom_builder = SeedBuilder::new()
     ///     .passphrase("holymoly")
     ///     .salt(rand[..].to_vec());
@@ -170,6 +174,28 @@ impl<'a> SeedBuilder<'a> {
         self
     }
 
+    /// Set the passphrase string for the seed's salt.
+    /// The default value is an empty string.
+    ///
+    /// # Arguments
+    ///
+    /// * `passphrase` - An arbitrary string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use keymaker::bip39::SeedBuilder;
+    /// use rand_core::{RngCore, OsRng};
+    ///
+    /// // Set a random 8-byte salt.
+    /// let mut rand = [0u8; 8];
+    /// OsRng.fill_bytes(&mut rand);
+    ///
+    /// // Use a custom salt and passhrase.
+    /// let custom_builder = SeedBuilder::new()
+    ///     .passphrase("holymoly")
+    ///     .salt(rand[..].to_vec());
+    /// ```
     pub fn passphrase(mut self, passphrase: &'a str) -> Self {
         self.passphrase = passphrase;
         let salt = DEFAULT_SALT_BASE.to_string() + passphrase;
@@ -198,13 +224,15 @@ impl<'a> SeedBuilder<'a> {
         let checksum = &b[..checksum_digits];
         let ent = bin + checksum;
 
-        let subs = ent.as_bytes()
+        let subs = ent
+            .as_bytes()
             .chunks(BLOCK_SIZE)
             .map(str::from_utf8)
             .collect::<Result<Vec<&str>, _>>()
             .unwrap();
 
-        let indices: Vec<usize> = subs.iter()
+        let indices: Vec<usize> = subs
+            .iter()
             .map(|b| {
                 let intval = isize::from_str_radix(b, 2)
                     .with_context(|| Bip39Error::ParseBinError(b.to_string()))
@@ -215,7 +243,9 @@ impl<'a> SeedBuilder<'a> {
 
         let path = Path::new(WORDLIST_PATH);
         if !path.exists() {
-            return Err(Bip39Error::MissingFileOrDirectory(WORDLIST_PATH.to_string()));
+            return Err(Bip39Error::MissingFileOrDirectory(
+                WORDLIST_PATH.to_string(),
+            ));
         }
 
         let file = File::open(path)
@@ -223,15 +253,13 @@ impl<'a> SeedBuilder<'a> {
             .unwrap();
 
         let reader = BufReader::new(file);
-        let words: Vec<String> = reader.lines().into_iter()
-            .map(|o| o.unwrap())
-            .collect();
+        let words: Vec<String> = reader.lines().into_iter().map(|o| o.unwrap()).collect();
 
-        let mnemonic_words: Vec<String> = indices.iter().map(|i| {
-            words[*i].to_owned()
-        }).collect();
+        let mnemonic_words: Vec<String> = indices.iter().map(|i| words[*i].to_owned()).collect();
 
-        let mut salt = (DEFAULT_SALT_BASE.to_string() + self.passphrase).as_bytes().to_vec();
+        let mut salt = (DEFAULT_SALT_BASE.to_string() + self.passphrase)
+            .as_bytes()
+            .to_vec();
         if let Some(s) = self.salt {
             salt = s;
         }
@@ -239,8 +267,13 @@ impl<'a> SeedBuilder<'a> {
         let password = mnemonic_words.join(" ");
         let mut seed_store: Credential = [0u8; CREDENTIAL_LEN];
         if let Some(iterations) = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS) {
-            pbkdf2::derive(PBKDF2_ALG, iterations, &salt,
-                    password.as_bytes(), &mut seed_store);
+            pbkdf2::derive(
+                PBKDF2_ALG,
+                iterations,
+                &salt,
+                password.as_bytes(),
+                &mut seed_store,
+            );
         } else {
             return Err(Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS));
         }
@@ -261,7 +294,7 @@ impl<'a> SeedBuilder<'a> {
 /// # Examples
 ///
 /// ```
-/// use xerberus::bip39::SeedBuilder;
+/// use keymaker::bip39::SeedBuilder;
 /// let seed = SeedBuilder::new().build().unwrap();
 /// ```
 pub struct Seed {
@@ -271,6 +304,16 @@ pub struct Seed {
 }
 
 impl ToString for Seed {
+    /// Encode the seed into a hex string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use keymaker::bip39::SeedBuilder;
+    /// let seed = SeedBuilder::new().build().unwrap();
+    /// let hex_seed = seed.to_string();
+    /// assert_eq!(hex_seed.len(), 128);
+    /// ```
     fn to_string(&self) -> String {
         if self.hex.len() <= 0 {
             return hex::encode(&self.entropy[..]);
@@ -283,9 +326,7 @@ impl Seed {
     pub fn validate(&self) -> bool {
         let file = File::open(Path::new(WORDLIST_PATH)).unwrap();
         let reader = BufReader::new(file);
-        let words: Vec<String> = reader.lines().into_iter()
-            .map(|o| o.unwrap())
-            .collect();
+        let words: Vec<String> = reader.lines().into_iter().map(|o| o.unwrap()).collect();
 
         let mut indices: Vec<usize> = Vec::with_capacity(self.mnemonic.len());
         for keyword in self.mnemonic.clone() {
@@ -306,23 +347,24 @@ impl Seed {
         };
 
         let checksum_digits = checksum_size / BITS_PER_CHECKSUM_DIGIT;
-        let bin = &ent[..ent.len()-4];
-        let checksum = &ent[ent.len()-4..];
+        let bin = &ent[..ent.len() - 4];
+        let checksum = &ent[ent.len() - 4..];
 
-        let key: Vec<u8> = bin.as_bytes()
+        let key: Vec<u8> = bin
+            .as_bytes()
             .chunks(BYTE_LEN)
             .map(|i| {
                 let b = str::from_utf8(i).unwrap();
                 let intval = isize::from_str_radix(b, 2).unwrap();
                 intval as u8
-            }).collect();
+            })
+            .collect();
 
         let hash = digest::digest(&digest::SHA256, &key);
         let BinaryString(b) = BinaryString::from(hash.as_ref());
         &b[..checksum_digits] == checksum
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -331,7 +373,7 @@ mod tests {
 
     const BYTE_LEN: usize = 8;
     enum Error {
-        WrongUsernameOrPassword
+        WrongUsernameOrPassword,
     }
 
     #[test]
@@ -347,7 +389,10 @@ mod tests {
 
         assert_eq!(default_builder.bits, 128);
         assert_eq!(default_builder.passphrase, "");
-        assert_eq!(default_builder.salt.to_owned().unwrap(), "mnemonic".as_bytes().to_vec());
+        assert_eq!(
+            default_builder.salt.to_owned().unwrap(),
+            "mnemonic".as_bytes().to_vec()
+        );
         assert_eq!(custom_builder.bits, 256);
         assert_eq!(custom_builder.passphrase, "holymoly");
         assert_eq!(custom_builder.salt.to_owned().unwrap(), rand[..].to_vec());
@@ -355,9 +400,7 @@ mod tests {
         let default_seed = default_builder.build()?;
         let custom_seed = custom_builder.build()?;
 
-        let next_builder = SeedBuilder::new()
-            .size(MnemonicSize::Size32Bytes)
-            .build()?;
+        let next_builder = SeedBuilder::new().size(MnemonicSize::Size32Bytes).build()?;
 
         assert_eq!(default_seed.mnemonic.len(), 12);
         assert_eq!(custom_seed.mnemonic.len(), 24);
@@ -369,13 +412,12 @@ mod tests {
 
     #[test]
     fn validate_mnemonic() -> Result<(), Bip39Error> {
-        use hex::{decode_to_slice as hex_decode_to_slice};
+        use hex::decode_to_slice as hex_decode_to_slice;
         let salt = "mysalt".as_bytes().to_vec();
 
-        let seed = SeedBuilder::new()
-            .salt(salt.clone()).build().unwrap();
+        let seed = SeedBuilder::new().salt(salt.clone()).build().unwrap();
 
-        let Seed { mnemonic, hex, ..  } = &seed;
+        let Seed { mnemonic, hex, .. } = &seed;
 
         let password = mnemonic.join(" ");
         let mut store = [0u8; CREDENTIAL_LEN];
@@ -383,22 +425,24 @@ mod tests {
 
         let pdkf2_iterations = NonZeroU32::new(DEFAULT_PDKF2_ITERATIONS)
             .ok_or(Bip39Error::Pdkf2IterError(DEFAULT_PDKF2_ITERATIONS))?;
-        if let Ok(verified) = pbkdf2::verify(PBKDF2_ALG, pdkf2_iterations, &salt,
+        if let Ok(verified) = pbkdf2::verify(
+            PBKDF2_ALG,
+            pdkf2_iterations,
+            &salt,
             password.as_bytes(),
-            &store)
-            .map_err(|_| Error::WrongUsernameOrPassword) {
+            &store,
+        )
+        .map_err(|_| Error::WrongUsernameOrPassword)
+        {
             assert_eq!(verified, ());
         } else {
             assert!(false);
         }
 
-
         let file = File::open(Path::new(WORDLIST_PATH)).unwrap();
         let reader = BufReader::new(file);
 
-        let words: Vec<String> = reader.lines().into_iter()
-            .map(|o| o.unwrap())
-            .collect();
+        let words: Vec<String> = reader.lines().into_iter().map(|o| o.unwrap()).collect();
 
         let mut indices: Vec<usize> = Vec::with_capacity(mnemonic.len());
 
@@ -413,16 +457,18 @@ mod tests {
         let subs: Vec<String> = indices.into_iter().map(|i| format!("{:011b}", i)).collect();
         let ent = subs.join("");
         let checksum_digits = SIZE_128_BITS / BITS_PER_CHECKSUM_DIGIT;
-        let bin = &ent[..ent.len()-4];
-        let checksum = &ent[ent.len()-4..];
+        let bin = &ent[..ent.len() - 4];
+        let checksum = &ent[ent.len() - 4..];
 
-        let key: Vec<u8> = bin.as_bytes()
+        let key: Vec<u8> = bin
+            .as_bytes()
             .chunks(BYTE_LEN)
             .map(|i| {
                 let b = str::from_utf8(i).unwrap();
                 let intval = isize::from_str_radix(b, 2).unwrap();
                 intval as u8
-            }).collect();
+            })
+            .collect();
 
         let hash = digest::digest(&digest::SHA256, &key);
         let BinaryString(b) = BinaryString::from(hash.as_ref());

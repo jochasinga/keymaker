@@ -1,34 +1,31 @@
 pub mod bip32;
 pub mod bip39;
+mod crypto;
+mod display;
+mod error;
 mod network;
 mod private;
 mod public;
-mod display;
-mod crypto;
-mod error;
 mod signature;
 
-
+pub use bip32::{KeyPair, MasterExtendedKeys};
 /// Re-exported for convenience.
 ///
 /// ```
-/// use xerberus::*;
+/// use keymaker::*;
 /// let seed = SeedBuilder::new().size(MnemonicSize::Size256Bits).build().unwrap();
 /// ```
-pub use bip39::{MnemonicSize, SeedBuilder, Seed};
-pub use bip32::{KeyPair, MasterExtendedKeys};
+pub use bip39::{MnemonicSize, Seed, SeedBuilder};
+pub use display::DisplayLayout;
+pub use error::Error;
 pub use network::Network;
 pub use private::PrivateKey;
 pub use public::PublicKey;
-pub use display::DisplayLayout;
-pub use error::Error;
-pub use signature::{Signature, CompactSignature};
-
+pub use signature::{CompactSignature, Signature};
 
 use lazy_static::lazy_static;
 
-
-type Hash32Bits  = [u8; 4];
+type Hash32Bits = [u8; 4];
 type Hash160Bits = [u8; 20];
 type Hash256Bits = [u8; 32];
 type Hash264Bits = [u8; 33];

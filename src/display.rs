@@ -1,10 +1,12 @@
-use std::ops::Deref;
 use crate::Error;
+use std::ops::Deref;
 
 pub trait DisplayLayout {
-	type Target: Deref<Target = [u8]>;
+    type Target: Deref<Target = [u8]>;
 
-	fn layout(&self) -> Self::Target;
+    fn layout(&self) -> Self::Target;
 
-	fn from_layout(data: &[u8]) -> Result<Self, Error> where Self: Sized;
+    fn from_layout(data: &[u8]) -> Result<Self, Error>
+    where
+        Self: Sized;
 }

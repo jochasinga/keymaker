@@ -1,8 +1,8 @@
+use crate::{Hash256Bits, Hash32Bits};
 pub use crypto::digest::Digest;
-use std::hash::Hasher;
-use crypto::sha2::Sha256;
 use crypto::ripemd160::Ripemd160;
-use crate::{Hash32Bits, Hash256Bits};
+use crypto::sha2::Sha256;
+use std::hash::Hasher;
 
 pub struct DHash256 {
     hasher: Sha256,
@@ -17,40 +17,40 @@ impl Default for DHash256 {
 }
 
 impl DHash256 {
-	pub fn new() -> Self {
-		DHash256::default()
-	}
+    pub fn new() -> Self {
+        DHash256::default()
+    }
 
-	pub fn finish(mut self) -> Hash256Bits {
-		let mut result = Hash256Bits::default();
-		self.result(&mut result);
-		result
-	}
+    pub fn finish(mut self) -> Hash256Bits {
+        let mut result = Hash256Bits::default();
+        self.result(&mut result);
+        result
+    }
 }
 
 impl Digest for DHash256 {
-	fn input(&mut self, d: &[u8]) {
-		self.hasher.input(d)
-	}
+    fn input(&mut self, d: &[u8]) {
+        self.hasher.input(d)
+    }
 
-	fn result(&mut self, out: &mut [u8]) {
-		self.hasher.result(out);
-		self.hasher.reset();
-		self.hasher.input(out);
-		self.hasher.result(out);
-	}
+    fn result(&mut self, out: &mut [u8]) {
+        self.hasher.result(out);
+        self.hasher.reset();
+        self.hasher.input(out);
+        self.hasher.result(out);
+    }
 
-	fn reset(&mut self) {
-		self.hasher.reset();
-	}
+    fn reset(&mut self) {
+        self.hasher.reset();
+    }
 
-	fn output_bits(&self) -> usize {
-		256
-	}
+    fn output_bits(&self) -> usize {
+        256
+    }
 
-	fn block_size(&self) -> usize {
-		64
-	}
+    fn block_size(&self) -> usize {
+        64
+    }
 }
 
 #[inline]
