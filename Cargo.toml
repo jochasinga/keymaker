@@ -16,3 +16,16 @@ secp256k1 = { version = "^0.20", features = ["bitcoin_hashes", "recovery"] }
 lazy_static = "1.4.0"
 base58 = "^0.1"
 rust-crypto = "0.2.36"
+
+[lib]
+name = "keymaker"
+path = "src/lib.rs"
+test = true
+doctest = true
+doc = true
+crate-type = ["lib"]
+
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"

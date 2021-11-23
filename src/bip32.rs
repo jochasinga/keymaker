@@ -53,7 +53,7 @@ impl KeyPair {
         &self.public
     }
 
-    pub fn secret(&self) -> &PrivateKey {
+    pub fn privkey(&self) -> &PrivateKey {
         &self.private
     }
 
@@ -139,6 +139,10 @@ impl MasterExtendedKeys {
 
     pub fn pubkey(&self) -> PublicKey {
         self.public.clone()
+    }
+
+    pub fn privkey(&self) -> PrivateKey {
+        self.private.clone()
     }
 }
 
