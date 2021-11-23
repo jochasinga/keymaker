@@ -85,8 +85,8 @@ impl MasterExtendedKeys {
     ///
     /// # Arguments
     ///
-    /// * `msg` - 64-bit byte array of a seed message derived from [bip32::Seed](bip32::Seed).
-    /// * `key` - Optional key. Default to "xerberus_seed".
+    /// * `msg` - 64-byte array of a seed message derived from [bip32::Seed](bip32::Seed).
+    /// * `key` - Optional key. Default to "default_seed".
     ///
     pub fn new(
         msg: [u8; 64],

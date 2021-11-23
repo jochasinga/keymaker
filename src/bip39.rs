@@ -1,3 +1,7 @@
+//! Implementation of the [BIP39]: Mnemonic code for generating deterministic keys.
+//!
+//! [BIP39]: https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+
 use anyhow::{Context, Result};
 use hex;
 use rand_core::{OsRng, RngCore};
@@ -42,7 +46,10 @@ pub enum Bip39Error {
     Pdkf2IterError(u32),
 }
 
-/// Define convenient aliases for the bit size of the seed.
+/// Define convenient aliases for the bit size of the seed entropy.
+///
+/// Normally, the size can be a multiple of 32 bits, anywhere between
+/// 128 to 256 bits.
 ///
 /// # Examples
 ///
@@ -56,7 +63,6 @@ pub enum MnemonicSize {
     Size256Bits,
     Size16Bytes,
     Size32Bytes,
-
     // TODO: These are a little confusing, mixing "words" with binary word size.
     Size12Words,
     Size24Words,
