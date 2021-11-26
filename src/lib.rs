@@ -7,6 +7,7 @@ mod network;
 mod private;
 mod public;
 mod signature;
+mod scalar;
 
 pub use bip32::{KeyPair, MasterExtendedKeys};
 /// Re-exported for convenience.
